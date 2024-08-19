@@ -4,6 +4,7 @@ import sys
 import glob
 import os.path
 import platform
+import datetime
 import argparse
 import av
 from PIL import Image, ImageDraw, ImageFont
@@ -24,6 +25,8 @@ TEXT_ANCHORS = {
     "bottom-middle": "md",
     "bottom-right": "rd"
 }
+
+LOCAL_TZ = datetime.datetime.now().astimezone().tzinfo
 
 def abort(msg):
     print(msg, file=sys.stderr)
@@ -165,6 +168,8 @@ def make_movie(mdmm_filename, args, font):
             if not args.no_timestamp:
                 draw = ImageDraw.Draw(image)
                 t = ser.timestamp_of_frame_number(frame_number)
+                if args.localtime:
+                    t = t.astimezone(LOCAL_TZ)
                 c = meteor_count if args.meteor_count else None
                 draw_timestamp(draw, t, text_pos, text_anchor, font, font_color,
                                cue_end > 0, c)
@@ -221,6 +226,7 @@ parser.add_argument("--video-bit-rate", default="12M",
 parser.add_argument("--margin-before", type=float, default=2.0)
 parser.add_argument("--margin-after", type=float, default=2.0)
 parser.add_argument("--cue", type=float, default=0.5)
+parser.add_argument("--localtime", action="store_true")
 parser.add_argument("--meteor-count", action="store_true")
 parser.add_argument("--no-timestamp", action="store_true")
 parser.add_argument("--timestamp-only", action="store_true")

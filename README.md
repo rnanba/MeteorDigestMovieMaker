@@ -1,4 +1,4 @@
-# MeteorDigestMovieMaker v0.1
+# MeteorDigestMovieMaker v0.2
 
 ## 概要
 
@@ -30,7 +30,7 @@ usage: mdmm.py [-h] [--base-dir BASE_DIR] [--out-dir OUT_DIR]
                [--font-color FONT_COLOR] [--text-position TEXT_POSITION]
                [--video-codec VIDEO_CODEC] [--video-bit-rate VIDEO_BIT_RATE]
                [--margin-before MARGIN_BEFORE] [--margin-after MARGIN_AFTER]
-               [--cue CUE] [--meteor-count] [--no-timestamp]
+               [--cue CUE] [--localtime] [--meteor-count] [--no-timestamp]
                [--timestamp-only]
                mdmm_files [mdmm_files ...] frame_rate
 ```
@@ -126,6 +126,7 @@ mdmm ファイルは、どの動画ファィルのどのフレームに流星が
 | `--margin-before MARGIN_BEFORE`   | 流星出現前の何秒前まで出力に含めるかを指定します。                                                                                        | `2.0`        |
 | `--margin-after MARGIN_AFTER`     | 流星消失後の何秒後まで出力に含めるかを指定します。                                                                                        | `2.0`        |
 | `--cue CUE`                       | シーンのつなぎ目を表すマーク(タイムスタンプの下線)を何秒間表示するかを指定します。                                                        | `0.5`        |
+| `--localtime`                     | タイムスタンプを実行環境のローカルタイムゾーンの時刻に変換して表示します。                                                                |              |
 | `--meteor-count`                  | タイムスタンプの手前に流星カウント(再生位置までに流れた流星の数)を表示する場合に指定します。                                              |              |
 | `--no-timestamp`                  | タイムスタンプと流星カウントを表示しない流星だけの映像を出力します(後述)。                                                                |              |
 | `--timestamp-only`                | 黒バックにタイムスタンプと流星カウントだけを表示した映像を出力します(後述)。                                                              |              |
