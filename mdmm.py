@@ -6,6 +6,8 @@ import os.path
 import platform
 import datetime
 import argparse
+import fractions
+import numpy as np
 import av
 from PIL import Image, ImageDraw, ImageFont
 import mdmm_file
@@ -84,12 +86,16 @@ def create_output_stream(container_out, width_in, height_in, args):
             out_width -= 1
         if HEIGHT % 2 == 1:
             out_height -= 1
+    fps = fractions.Fraction(args.frame_rate)
     stream_out = container_out.add_stream(args.video_codec,
-                                          rate=args.frame_rate)
+                                          rate=fps)
     stream_out.bit_rate = bit_rate
     stream_out.width = out_width
     stream_out.height = out_height
-    stream_out.pix_fmt = "yuv420p"
+    if args.timestamp_only and args.alpha:
+        stream_out.pix_fmt = "yuva420p"
+    else:
+        stream_out.pix_fmt = "yuv420p"
     return stream_out
 
 def draw_timestamp(draw, t, pos, anchor, font, color, in_cue, count=None):
@@ -154,7 +160,9 @@ def make_movie(mdmm_filename, args, font):
             meteor_count += count_inc
             image = None
             if args.timestamp_only:
-                image = Image.new(mode="RGB", color="#000000",
+                mode = "RGBA" if args.alpha else "RGB"
+                bgcolor = "#00000000" if args.alpha else "#000000"
+                image = Image.new(mode=mode, color=bgcolor,
                                   size=(stream_out.width, stream_out.height))
             else:
                 image = ser.image_of_frame_number(frame_number)
@@ -182,8 +190,16 @@ def make_movie(mdmm_filename, args, font):
             
             if frame_number >= cue_end:
                 cue_end = 0
+
+            vf = None
+            if args.timestamp_only:
+                format = "rgba" if args.alpha else "rgb24"
+                np_array = np.array(image)
+                vf = av.VideoFrame.from_numpy_buffer(np_array, format=format)
+            else:
+                vf = av.VideoFrame.from_image(image)
             
-            for packet in stream_out.encode(av.VideoFrame.from_image(image)):
+            for packet in stream_out.encode(vf):
                 container_out.mux(packet)
                 
             if time_line.is_last_frame_to_show(frame_number):
@@ -230,6 +246,7 @@ parser.add_argument("--localtime", action="store_true")
 parser.add_argument("--meteor-count", action="store_true")
 parser.add_argument("--no-timestamp", action="store_true")
 parser.add_argument("--timestamp-only", action="store_true")
+parser.add_argument("--alpha", action="store_true")
 
 args = parser.parse_args()
 
