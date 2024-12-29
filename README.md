@@ -1,4 +1,4 @@
-# MeteorDigestMovieMaker v0.2
+# MeteorDigestMovieMaker v0.3
 
 ## 概要
 
@@ -13,7 +13,7 @@ https://www.flickr.com/photos/rnanba/53927622592/
 以下の環境で動作を確認しています。
 
 - python 3.10.12
-  - av 12.3.0
+  - av 14.0.1
   - numpy 2.0.1
   - opencv-python 4.10.0.84
   - pillow 10.4.0
@@ -31,7 +31,7 @@ usage: mdmm.py [-h] [--base-dir BASE_DIR] [--out-dir OUT_DIR]
                [--video-codec VIDEO_CODEC] [--video-bit-rate VIDEO_BIT_RATE]
                [--margin-before MARGIN_BEFORE] [--margin-after MARGIN_AFTER]
                [--cue CUE] [--localtime] [--meteor-count] [--no-timestamp]
-               [--timestamp-only]
+               [--timestamp-only] [--alpha]
                mdmm_files [mdmm_files ...] frame_rate
 ```
 
@@ -55,7 +55,7 @@ mdmm ファイルは、どの動画ファィルのどのフレームに流星が
 
 #### 動画ファイル(SERファイル)の制限
 
-- ベイヤー配列のカラーカメラで RAW8 または RAW16 で記録した動画にのみ対応しています。
+- ベイヤー配列のカラーカメラで RAW8 <s>または RAW16</s> で記録した動画にのみ対応しています。
   - SharpCap でキャプチャーした動画で動作確認しています。
 - 動画にはフレームのタイムスタンプが記録されている必要があります。
   - SharpCap ではデフォルトで記録されるようです。
@@ -130,6 +130,7 @@ mdmm ファイルは、どの動画ファィルのどのフレームに流星が
 | `--meteor-count`                  | タイムスタンプの手前に流星カウント(再生位置までに流れた流星の数)を表示する場合に指定します。                                              |              |
 | `--no-timestamp`                  | タイムスタンプと流星カウントを表示しない流星だけの映像を出力します(後述)。                                                                |              |
 | `--timestamp-only`                | 黒バックにタイムスタンプと流星カウントだけを表示した映像を出力します(後述)。                                                              |              |
+| `--alpha`   | `--timestamp-only` オプションと #RRGGBBAA 形式で色を指定した `--font-color` オプションと同時に指定するとタイムスタンプと流星カウントを半透明で描画します(後述)。|              |
 
 ### フォントについて
 
@@ -155,9 +156,9 @@ MITライセンスです。
 
 ## 参考: タイムスタンプと流星の分離処理
 
-タイムスタンプのみの動画と流星のみの動画を生成することができます。流星のみの動画を画質調整したものにタイムスタンプのみの動画をクロマキー合成することでタイムスタンプの色調等に影響を与えずに画質調整することができます。タイムスタンプのみの動画の生成は流星を含む動画よりも高速に実行できるため、タイムスタンプのスタイルを後から変更する場合にもこの方法は便利です。
+タイムスタンプのみの動画と流星のみの動画を生成することができます。流星のみの動画を画質調整したものにタイムスタンプのみの動画をクロマキー合成等で合成することでタイムスタンプの色調等に影響を与えずに画質調整することができます。タイムスタンプのみの動画の生成は流星を含む動画よりも高速に実行できるため、タイムスタンプのスタイルを後から変更する場合にもこの方法は便利です。
 
-例:
+### クロマキー合成の例
 
 ```
 ./mdmm.py sample.mdmm.txt 15.9 --timestamp-only 
@@ -168,12 +169,12 @@ ffmpeg -i sample.mdmm_notimestamp.mp4 -i sample.mdmm_timestamp.mp4 -filter_compl
 # -> sample.mdmm_merge.mp4
 ```
 
-フィルター処理の説明は以下の通りです。
+ffmpeg のフィルター処理の例の説明は以下の通りです。
 
-- 入力`[0]`のフィルター処理(`[a]`に出力)
+- 入力`[1]`のフィルター処理(`[a]`に出力)
   - `colorkey=black:0.01:0`
 	- クロマキー合成で黒を透過させる指定
-- 入力`[1]`のフィルター処理(`[b]`に出力)
+- 入力`[0]`のフィルター処理(`[b]`に出力)
   - `colorbalance=gm=-0.1:bm=-0.11:gs=-0.1:bs=-0.11:gh=-0.05:bh=-0.06`
 	- カラーバランス調整
   - `eq=gamma=0.97`
@@ -183,3 +184,46 @@ ffmpeg -i sample.mdmm_notimestamp.mp4 -i sample.mdmm_timestamp.mp4 -filter_compl
 - フィルター出力`[a]`,`[b]`の合成処理
   - `overlay`
 	- オーバーレイ合成
+
+### アルファブレンディングで合成する例
+
+```
+./mdmm.py sample.mdmm.txt 15.9 --out-ext .webm --font-color '#FFCC0080' --timestamp-only --alpha
+# -> sample.mdmm_timestamp.webm
+./mdmm.py sample.mdmm.txt 15.9 --no-timestamp
+# -> sample.mdmm_notimestamp.mp4
+ffmpeg -i sample.mdmm_notimestamp.mp4 -c libvpx-vp9 -i sample.mdmm_timestamp.webm -filter_complex '[0]hqdn3d,eq=gamma=1.5:contrast=1.2[a];[a][1]overlay' -c libx264 -b:v 10M -pixel_format yuv420p  sample.mdmm_merge.mp4
+# -> sample.mdmm_merge.mp4
+```
+タイムスタンプや流星カウントを半透明で表示したい場合は、まずタイムスタンプのみの動画を mdmm.py で生成する際に以下のオプションを指定します。
+
+- `--out-ext .webm` : タイムスタンプのみの動画をアルファチャンネル付きで出力するために必要です(デフォルトの .mp4 (h264)がアルファチャンネル非対応なため)。
+- `--font-color '#FFCC0080'` : フォントの色に半透明の色を16進RGBカラーコードの末尾にアルファ値(不透明度)を追加したカラーコードで指定します(この例では #FFCC00 (橙色)にアルファ値 80 (50%の半透明)を追加した値を指定しています)。
+- `--alpha` : このオプションを指定するとアルファチャンネルを含む動画を出力します。
+
+ffmpeg でタイムスタンプのみ動画とタイムスタンプなし動画を合成する際には `-c libvpx-vp9` オプションをタイムスタンプのみの動画(.webm 形式)を指定する `-i` オプションの直前に指定します。これを指定しないとアルファチャンネルが正しく処理されません。
+
+ffmpeg のフィルター処理の例の説明は以下の通りです。
+
+- 入力`[0]`のフィルター処理(`[a]`に出力)
+  - `hqdn3d`
+	- ノイズリダクション
+  - `eq=gamma=1.5:contrast=1.2`
+	- ガンマ補正、コントラスト調整
+- フィルター出力`[a]`と入力`[1]`の合成処理
+  - `overlay`
+	- オーバーレイ合成
+
+## 更新履歴
+
+- 2024-12-29: v0.3:
+  - --alpha オプションの追加
+  - PyAVの新しいバージョン(例: 14.0.1)でエラーになる問題への対応
+  - RAW16 のSER動画を非対応に
+	- Pillow が 16bit/channel のカラー画像に非対応でエラーになっていた
+  - 「参考: タイムスタンプと流星の分離処理」の加筆修正
+	- クロマキー合成の例のフィルター処理の説明で入力番号が逆になっていたのを修正
+	- アルファブレンディングで合成する例を追加
+- 2024-08-19: v0.2:
+  - --localtime オプションの追加
+- 2024-08-17: v0.1: 初公開
