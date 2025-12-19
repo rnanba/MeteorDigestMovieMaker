@@ -62,12 +62,14 @@ class SerVideo:
         return self.timestamps[frame_number - 1]
 
     def image_of_frame_number(self, frame_number):
+        return Image.fromarray(self.nparray_of_frame_number(frame_number))
+    
+    def nparray_of_frame_number(self, frame_number):
         self.f.seek(178 + (frame_number - 1) * self.frame_length)
         array = np.frombuffer(self.f.read(self.frame_length), dtype=self.dtype)
         image_array = np.reshape(array, (self.image_height, self.image_width))
-        cv2_image = cv2.cvtColor(image_array, self.BAYER_PATTERNS[self.color_id])
-        return Image.fromarray(cv2_image)
-
+        return cv2.cvtColor(image_array, self.BAYER_PATTERNS[self.color_id])
+    
     def close(self):
         self.f.close()
 

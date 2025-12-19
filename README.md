@@ -1,4 +1,4 @@
-# MeteorDigestMovieMaker v0.3
+# MeteorDigestMovieMaker v0.4
 
 ## 概要
 
@@ -17,6 +17,7 @@ https://www.flickr.com/photos/rnanba/53927622592/
   - numpy 2.0.1
   - opencv-python 4.10.0.84
   - pillow 10.4.0
+  - scipy 1.15.3
 
 venv 環境で `pip install -r requirments.txt` でモジュールをインストールして動作確認しています。
 
@@ -25,13 +26,13 @@ OS は Ubuntu 22.04 で動作を確認ています。Windows, macOS でも動く
 ## 使用方法
 
 ```
-usage: mdmm.py [-h] [--base-dir BASE_DIR] [--out-dir OUT_DIR]
+usage: mdmm.py [-h] [--version] [--base-dir BASE_DIR] [--out-dir OUT_DIR]
                [--out-ext OUT_EXT] [--font FONT] [--font-size FONT_SIZE]
                [--font-color FONT_COLOR] [--text-position TEXT_POSITION]
                [--video-codec VIDEO_CODEC] [--video-bit-rate VIDEO_BIT_RATE]
                [--margin-before MARGIN_BEFORE] [--margin-after MARGIN_AFTER]
                [--cue CUE] [--localtime] [--meteor-count] [--no-timestamp]
-               [--timestamp-only] [--alpha]
+               [--timestamp-only] [--alpha] [--marker-file MARKER_FILE]
                mdmm_files [mdmm_files ...] frame_rate
 ```
 
@@ -55,7 +56,7 @@ mdmm ファイルは、どの動画ファィルのどのフレームに流星が
 
 #### 動画ファイル(SERファイル)の制限
 
-- ベイヤー配列のカラーカメラで RAW8 <s>または RAW16</s> で記録した動画にのみ対応しています。
+- ベイヤー配列のカラーカメラで RAW8 で記録した動画にのみ対応しています。
   - SharpCap でキャプチャーした動画で動作確認しています。
 - 動画にはフレームのタイムスタンプが記録されている必要があります。
   - SharpCap ではデフォルトで記録されるようです。
@@ -112,25 +113,26 @@ mdmm ファイルは、どの動画ファィルのどのフレームに流星が
 
 ### オプション
 
-| オプション                        | 説明                                                                                                                                      | デフォルト値 |
-|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|--------------|
-| `--base-dir BASE_DIR`             | 入力ファイルのパス指定行の基準となるディレクトリを指定します。                                                                            | `.`          |
-| `--out-dir OUTDIR`                | 出力動画の保存祭ディレクトリを指定します。                                                                                                | `.`          |
-| `--out-ext OUT_EXT`               | 出力動画のフォーマットを拡張子で指定します。                                                                                              | `.mp4`       |
-| `--font FONT`                     | タイムスタンプ表示のフォントを指定します。指定がなければ環境から推定した Courier New フォントを使用します(後述)。                         | `24`         |
-| `--font-size FONT_SIZE`           | タイムスタンプ表示のフォントサイズを指定します(単位はピクセル)。                                                                          |              |
-| `--font-color FONT_COLOR`         | タイムスタンプ表示の文字色を指定します。HTML/CSSのカラーコードが使えます。                                                                | `#FF8888`    |
-| `--text-position TEXT_POSITION`   | タイムスタンプの表示位置を `top-left`, `top-middle`, `top-right`, `bottom-left`, `bottom-middle`, `bottom-right` のいずれかで指定します。 | `top-left`   |
-| `--video-codec VIDEO_CODEC`       | 出力動画のコーデックを ffmpeg のコーデック名で指定します。                                                                                | `libx264`    |
-| `--video-bit-rate VIDEO_BIT_RATE` | 出力動画のビットレート(単位はbps)を指定します。                                                                                           | `12M`        |
-| `--margin-before MARGIN_BEFORE`   | 流星出現前の何秒前まで出力に含めるかを指定します。                                                                                        | `2.0`        |
-| `--margin-after MARGIN_AFTER`     | 流星消失後の何秒後まで出力に含めるかを指定します。                                                                                        | `2.0`        |
-| `--cue CUE`                       | シーンのつなぎ目を表すマーク(タイムスタンプの下線)を何秒間表示するかを指定します。                                                        | `0.5`        |
-| `--localtime`                     | タイムスタンプを実行環境のローカルタイムゾーンの時刻に変換して表示します。                                                                |              |
-| `--meteor-count`                  | タイムスタンプの手前に流星カウント(再生位置までに流れた流星の数)を表示する場合に指定します。                                              |              |
-| `--no-timestamp`                  | タイムスタンプと流星カウントを表示しない流星だけの映像を出力します(後述)。                                                                |              |
-| `--timestamp-only`                | 黒バックにタイムスタンプと流星カウントだけを表示した映像を出力します(後述)。                                                              |              |
-| `--alpha`   | `--timestamp-only` オプションと #RRGGBBAA 形式で色を指定した `--font-color` オプションと同時に指定するとタイムスタンプと流星カウントを半透明で描画します(後述)。|              |
+| オプション                        | 説明                                                                                                                                                             | デフォルト値 |
+|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------|
+| `--base-dir BASE_DIR`             | 入力ファイルのパス指定行の基準となるディレクトリを指定します。                                                                                                   | `.`          |
+| `--out-dir OUTDIR`                | 出力動画の保存先ディレクトリを指定します。                                                                                                                       | `.`          |
+| `--out-ext OUT_EXT`               | 出力動画のフォーマットを拡張子で指定します。                                                                                                                     | `.mp4`       |
+| `--font FONT`                     | タイムスタンプ表示のフォントを指定します。指定がなければ環境から推定した Courier New フォントを使用します(後述)。                                                |              |
+| `--font-size FONT_SIZE`           | タイムスタンプ表示のフォントサイズを指定します(単位はピクセル)。                                                                                                 | `24`         |
+| `--font-color FONT_COLOR`         | タイムスタンプ表示の文字色を指定します。HTML/CSSのカラーコードが使えます。                                                                                       | `#FF8888`    |
+| `--text-position TEXT_POSITION`   | タイムスタンプの表示位置を `top-left`, `top-middle`, `top-right`, `bottom-left`, `bottom-middle`, `bottom-right` のいずれかで指定します。                        | `top-left`   |
+| `--video-codec VIDEO_CODEC`       | 出力動画のコーデックを ffmpeg のコーデック名で指定します。                                                                                                       | `libx264`    |
+| `--video-bit-rate VIDEO_BIT_RATE` | 出力動画のビットレート(単位はbps)を指定します。                                                                                                                  | `12M`        |
+| `--margin-before MARGIN_BEFORE`   | 流星出現前の何秒前まで出力に含めるかを指定します。                                                                                                               | `2.0`        |
+| `--margin-after MARGIN_AFTER`     | 流星消失後の何秒後まで出力に含めるかを指定します。                                                                                                               | `2.0`        |
+| `--cue CUE`                       | シーンのつなぎ目を表すマーク(タイムスタンプの下線)を何秒間表示するかを指定します。                                                                               | `0.5`        |
+| `--localtime`                     | タイムスタンプを実行環境のローカルタイムゾーンの時刻に変換して表示します。                                                                                       |              |
+| `--meteor-count`                  | タイムスタンプの手前に流星カウント(再生位置までに流れた流星の数)を表示する場合に指定します。                                                                     |              |
+| `--no-timestamp`                  | タイムスタンプと流星カウントを表示しない流星だけの映像を出力します(後述)。                                                                                       |              |
+| `--timestamp-only`                | 黒バックにタイムスタンプと流星カウントだけを表示した映像を出力します(後述)。                                                                                     |              |
+| `--alpha`                         | `--timestamp-only` オプションと #RRGGBBAA 形式で色を指定した `--font-color` オプションと同時に指定するとタイムスタンプと流星カウントを半透明で描画します(後述)。 |              |
+| `--marker-file`                   | 流星の出現場所を表示するマーカーのデータファイルを指定します(後述)。                                                                                             |              |
 
 ### フォントについて
 
@@ -149,6 +151,64 @@ mdmm ファイルに書かれたパスの基準となるディレクトリに `/
 ```
 ./mdmm.py input.mdmm.txt 15.9 --base-dir '/SharpCap Captures'
 ```
+
+## マーカーの生成
+
+流星の出現場所にマーカーを表示したい場合は mdmm ファイルから `make_markers.py` スクリプトでマーカーのデータファイルを生成できます。
+
+このファイルを `mdmm.py` の `--marker-file` オプションに指定すると、マーカー入りのダイジェスト動画が生成できます。ただし、`--no-timestamp` オプションを指定した場合はタイムスタンプだけでなくマーカーも表示されません。
+
+### `make_markers.py` の使用方法
+
+```
+usage: make_markers.py [-h] [--version] [--base-dir BASE_DIR]
+                       [--out-dir OUT_DIR] [--max-bg-frames MAX_BG_FRAMES]
+                       [--min-sigma-factor MIN_SIGMA_FACTOR]
+                       [--max-sigma-factor MAX_SIGMA_FACTOR]
+                       [--sigma-factor-step SIGMA_FACTOR_STEP]
+                       [--max-label-count MAX_LABEL_COUNT]
+                       [--max-merge-distance MAX_MERGE_DISTANCE]
+                       [--min-structure-area MIN_STRUCTURE_AREA]
+                       [--marker-color MARKER_COLOR]
+                       [--marker-width MARKER_WIDTH]
+                       mdmm_filename
+```
+
+#### 出力ファイル
+
+マーカーのデータファイルは、入力の mdmm ファイルのファイル名の末尾 `_markers` を付けたファイル名になります。拡張子は `.json` です。
+
+また、検出した流星の画像ファイルが保存されます。_{動画のファイル名のパス区切り文字をアンダースコアに置換したもの}_`-`_{開始フレーム番号}_`_`_{終了フレーム番号}_`.png` の書式のファイル名になります。保存される画像はグレースケール画像で、流星部分だけが抽出されたものにマーカーを描画したものになります。
+
+#### 引数
+
+| 引数         | 説明                                 |
+|--------------|--------------------------------------|
+| `mdmm_files` | 入力する mdmm ファイルを指定します。 |
+
+#### オプション
+
+| オプション                                | 説明                                                                                                   | デフォルト値 |
+|-------------------------------------------|--------------------------------------------------------------------------------------------------------|--------------|
+| `--base-dir BASE_DIR`                     | 入力ファイルのパス指定行の基準となるディレクトリを指定します。                                         | `.`          |
+| `--out-dir OUTDIR`                        | 出力ファイルの保存先ディレクトリを指定します。                                                             | `.`          |
+| `--max-bg-frames MAX_BG_FRAMES`           | 背景輝度を計算するためのフレームの数の最大値を指定します。                                             | `16`         |
+| `--min-sigma-factor MIN_SIGMA_FACTOR`     | 検出する流星を背景から分離を試みる際に閾値の係数として試す値の最小値を指定します。                     | `3.0`        |
+| `--max-sigma-factor MAX_SIGMA_FACTOR`     | 検出する流星を背景から分離を試みる際に閾値の係数として試す値の最大値を指定します。                     | `9.0`        |
+| `--sigma-factor-step SIGMA_FACTOR_STEP`   | 検出する流星を背景から分離を試みる際に閾値の係数として試す値の1回毎の増分を指定します。                | `1.0`        |
+| `--max-label-count MAX_LABEL_COUNT`       | 背景から分離されるエリアの数の最大値を指定します。                                                     | `100`        |
+| `--max-merge-distance MAX_MERGE_DISTANCE` | 背景から分離されたエリアのうち近接したものをマージする際の基準となるエリア間距離の最大値を指定します。 | `10`         |
+| `--min-structure-area MIN_STRUCTURE_AREA` | 流星の光跡として扱う基準となるエリアの面積の最小値を指定します。                                       | `16`         |
+| `--marker-color MARKER_COLOR`             | マーカーの線の色を指定します。HTML/CSSのカラーコードが使えます。                                       | `#00FF00`    |
+| `--marker-width MARKER_WIDTH`             | マーカーの線の太さを指定します。                                                                       | `2`          |
+
+フレームのピクセル毎の背景輝度値は `--max-bg-frames` 値の数だけ、流星が写っているフレーム前後から取得した流星が写っていないフレームから計算します。
+
+計算した背景輝度値より基準を超えて高い輝度を持つピクセルが集まったエリアを流星の候補として分離します。この時に大量のノイズを候補に入れてしまうと誤検出や処理速度の低下があるため、候補となるエリアの数を十分減らすために、輝度の高さの基準値を自動的に調整します。基準値の係数の調整範囲は `--min-sigma-factor` 値から `--max-sigma-factor` 値までで、`--sigma-factor-step` ずつ係数を増やして試します。候補のエリアの数が `--max-label-count` 値より小さくなるか、係数が `--max-sigma-factor` 値に達するまで調整を繰り返します。
+
+その後、エリアの面積が `--min-structure-area` 値以下のエリアを候補から除外し、残ったエリアのうちエリア間の距離が `--max-merge-distance` 値より近接したもの同士をマージして流星の光跡全体を囲むマーカーの矩形を計算します。
+
+
 
 ## ライセンス
 
@@ -216,6 +276,14 @@ ffmpeg のフィルター処理の例の説明は以下の通りです。
 
 ## 更新履歴
 
+- 2025-12-19: v0.4:
+  - `--version` オプションの追加
+	- mdmm.py のバージョンを表示する
+  - `--marker-file` オプションの追加
+    - 流星マーカーのデータファイルを元に流星を囲むマーカーを描画する
+  - 流星マーカーのデータを生成するスクリプト `make_markers.py` の追加
+  - 不具合修正
+	- `--text-position` オプションで `top-left` 以外を指定すると cue が表示されない
 - 2024-12-29: v0.3:
   - --alpha オプションの追加
   - PyAVの新しいバージョン(例: 14.0.1)でエラーになる問題への対応

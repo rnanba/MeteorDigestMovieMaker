@@ -5,14 +5,16 @@ import glob
 import os.path
 import platform
 import datetime
-import argparse
 import fractions
 import numpy as np
 import av
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 import mdmm_file
+import marker_file
 from time_line import TimeLine
 from ser import SerVideo
+
+VERSION = '0.4'
 
 FONTS = {
     "Linux": "Courier_New.ttf",
@@ -109,11 +111,24 @@ def draw_timestamp(draw, t, pos, anchor, font, color, in_cue, count=None):
         _, _, xc, _ = font.getbbox(c_str, anchor=anchor)
     draw.text(pos, f"{c_str}{t_str}", fill=color, font=font, anchor=anchor)
     if in_cue:
-        draw.line((x1+xc,y2,x2+xc,y2), fill=color, width=3)
+        cx1 = pos[0] + x1 + xc
+        cx2 = pos[0] + x2 + xc
+        cy = pos[1] + y2
+        draw.line((cx1,cy,cx2,cy), fill=color, width=3)
+
+def draw_marker(draw, marker, font_alpha=None):
+    x1, y1, x2, y2 = marker["rect"]
+    marker_color = ImageColor.getrgb(marker["color"])
+    if font_alpha and len(marker_color) == 3:
+        marker_color += (font_alpha,)
+    draw.rectangle([(x1,y1),(x2,y2)], outline=marker_color, width=marker["width"])
 
 def make_movie(mdmm_filename, args, font):
     mdmm = mdmm_file.parse(mdmm_filename, args.base_dir)
     name = os.path.splitext(os.path.basename(mdmm_filename))[0]
+    marker_data = None
+    if args.marker_file:
+        marker_data = marker_file.parse(args.marker_file, args.base_dir)
     mode = ""
     if args.timestamp_only:
         mode = "_timestamp"
@@ -125,7 +140,10 @@ def make_movie(mdmm_filename, args, font):
     print(f"{mdmm_filename} -> {out_file}")
 
     is_cropped_output = False
-    font_color = args.font_color
+    font_color = ImageColor.getrgb(args.font_color)
+    font_alpha = None
+    if args.timestamp_only and args.alpha and len(font_color):
+        font_alpha = font_color[3]
     text_anchor = TEXT_ANCHORS[args.text_position]
     text_pos = None
     container_out = None
@@ -172,9 +190,15 @@ def make_movie(mdmm_filename, args, font):
 
             if time_line.is_scene_change(frame_number):
                 cue_end = frame_number + cue_frames
-            
+
             if not args.no_timestamp:
                 draw = ImageDraw.Draw(image)
+                if marker_data:
+                    markers = marker_data.get_markers(data.rel_movie_file,
+                                                      frame_number)
+                    for m in markers:
+                        draw_marker(draw, m, font_alpha)
+                
                 t = ser.timestamp_of_frame_number(frame_number)
                 if args.localtime:
                     t = t.astimezone(LOCAL_TZ)
@@ -213,7 +237,14 @@ def make_movie(mdmm_filename, args, font):
     container_out.close()
 
 #
-parser = argparse.ArgumentParser()
+ver_parser = argparse.ArgumentParser(add_help=False)
+ver_parser.add_argument("--version", action="store_true")
+known_args, unknown_args = ver_parser.parse_known_args()
+if known_args.version:
+    print(f"version {VERSION}")
+    exit(0)
+
+parser = argparse.ArgumentParser(parents=[ver_parser])
 parser.add_argument("mdmm_files", nargs="+",
                     help="MDMM text files.")
 parser.add_argument("frame_rate", 
@@ -247,6 +278,8 @@ parser.add_argument("--meteor-count", action="store_true")
 parser.add_argument("--no-timestamp", action="store_true")
 parser.add_argument("--timestamp-only", action="store_true")
 parser.add_argument("--alpha", action="store_true")
+parser.add_argument("--marker-file", default=None,
+                    help="output json file of make_markers.py")
 
 args = parser.parse_args()
 

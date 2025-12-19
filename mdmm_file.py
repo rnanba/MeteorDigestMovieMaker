@@ -2,8 +2,12 @@ import os.path
 import re
 
 class MdmmData:
-    def __init__(self, movie_file):
-        self.movie_file = movie_file
+    def __init__(self, base_dir, path):
+        self.movie_file = os.path.join(base_dir, *path)
+        if not os.path.exists(self.movie_file):
+            raise RuntimeError(f"ERROR: Movie file '{self.movie_file}'"\
+                               " is not found.")
+        self.rel_movie_file = os.path.join(*path)
         self.ranges = []
 
     def append(self, start, end):
@@ -43,11 +47,7 @@ def parse(mdmm_file, base_dir):
             elif m := re.match(r"^([0-9]+)\s*:\s*([0-9]+)\s*.*$", line):
                 start, end = m.groups()
                 if data is None:
-                    movie_file = os.path.join(base_dir, *path)
-                    if not os.path.exists(movie_file):
-                        raise RuntimeError(f"ERROR: Movie file '{movie_file}'"\
-                                           " is not found.")
-                    data = MdmmData(movie_file)
+                    data = MdmmData(base_dir, path)
                     mdmm.append(data)
 
                 data.append(int(start), int(end))
